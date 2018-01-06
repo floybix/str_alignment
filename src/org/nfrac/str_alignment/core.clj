@@ -16,16 +16,18 @@
                     gap-open :gap-open-weight
                     gap-ext :gap-ext-weight
                     global? :global?}]
-  (->> locations
-       (filter #(or (zero? (first %))
-                    (zero? (second %))))
-       (reduce (fn [m [i j]]
-                 (assoc m [i j]
-                        (cond
-                          (= i j 0) (Alignment. 0 :stop \- \-)
-                          (= i 0) (Alignment. (if global? (* gap-open j) 0) :l \- (.charAt s2 j))
-                          (= j 0) (Alignment. (if global? (* gap-open i) 0) :u (.charAt s1 i) \-))))
-               {})))
+  (let [s1 (str s1)
+        s2 (str s2)]
+    (->> locations
+         (filter #(or (zero? (first %))
+                      (zero? (second %))))
+         (reduce (fn [m [i j]]
+                   (assoc m [i j]
+                          (cond
+                            (= i j 0) (Alignment. 0 :stop \- \-)
+                            (= i 0) (Alignment. (if global? (* gap-open j) 0) :l \- (.charAt s2 j))
+                            (= j 0) (Alignment. (if global? (* gap-open i) 0) :u (.charAt s1 i) \-))))
+                 {}))))
 
 (defn- dir->coord [dir i j]
   (case dir
