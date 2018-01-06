@@ -1,43 +1,61 @@
-# str_alignment
+# str-alignment
 
 A Clojure library designed to align 2 strings using either
 Smith-Waterman for local alignment or Needleman Wunsch for global
-alignment. The algorithm returns a vector of tuples where a tuple is
-composed of the max score and the 2 optimally aligned strings with gap
-characters.
+alignment.
 
 ## Installation
 Using clojars
 
-[str_alignment "0.1.0-SNAPSHOT"]
+TODO
 
 ## Usage
 
-(use 'str-alignment.aligner)
+The first step is to calculate the alignments matrix, which is a map
+keyed by a pair of offsets into the two strings: `[i1 i2]`.
+Then you can look up similarity scores at different alignment
+locations, choose a location to anchor at, and use that to reconstruct
+aligned strings (with gap characters inserted).
 
-(align "acacacta" "agcacaca")
+``` clojure
+(require '[org.nfrac.str-alignment.core :as ali])
 
-;[[12 "a-cacacta" "agcacac-a"]]
+(def mat (ali/alignments "acacacta" "agcacaca" {}))
+(def loc (key (apply max-key #(first (val %)) mat)))
+(first (get mat loc)) ;; score
+;12
+(ali/align-at loc mat false)
+;["a-cacacta" "agcacac-a"]
+```
 
-(align "gacttac" "cgtgaattcat" :global true :match-weight 1) 
+Global alignment example:
 
-;[[-1 "---gactt-ac" "cgtgaattcat"]]
+``` clojure
+(let [[s1 s2] ["gacttac" "cgtgaattcat"]
+      mat (ali/alignments s1 s2 {:global? true :match-weight 1})
+      loc [(count s1) (count s2)]]
+  [(first (get mat loc))
+   (ali/align-at loc mat true)])
+;[-1 ["---gactt-ac" "cgtgaattcat"]]
+```
 
-Other options to use are :global = true uses Needleman Wunsch. False
-uses Smith-Waterman, :anchor-right is a boolean which forces alignment
-to continue to the right edge of both strings and :anchor-left is a
-boolean which forces the alignment to the left most edge.
+Scoring weights passed to `alignments` are
 
-Scoring weights are set by :match-weight, :mismatch-weight,
-:gap-open-weight, :gap-ext-weight. If weights is a penalty
-(i.e. mismatch-weight) then the weight is a negative number (i.e. -1).
+| key                | default |
+| ------------------ | ------- |
+| `:match-weight`    |  2      |
+| `:mismatch-weight` | -1      |
+| `:gap-open-weight` | -1      |
+| `:gap-ext-weight`  | -1      |
+
 
 ## TODO
 Put in test cases.
 
 ## License
 
-Copyright © 2014 FIXME
+Copyright © 2014 Shermin Pei
+Copyright © 2018 Felix Andrews
 
 Distributed under the Eclipse Public License either version 1.0 or (at
 your option) any later version.
