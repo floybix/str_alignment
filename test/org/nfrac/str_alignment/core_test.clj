@@ -37,5 +37,6 @@
                               (repeat 100 \a) (repeat 100 \b)))]
     (println
      (time
-      (align s1 s2 {:match-weight 1})))
+      (dotimes [i 10]
+        (align s1 s2 {:match-weight 1}))))
     ))

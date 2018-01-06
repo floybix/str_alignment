@@ -36,16 +36,6 @@
     :l [i (dec j)]
     :stop))
 
-(defn- get-score [m dir i j] (->> (dir->coord dir i j) m))
-
-(defn- maxa
-  "Determine max score and direction for position [i j]"
-  [coll]
-  (->> coll
-       (filter #(= (apply max (map second coll)) (second %)))
-       (sort-by first)
-       first))
-
 (defn alignments
   "Calculates the alignment score matrix for two strings.
   Returns a map from [i1 i2] to [score ..other-path-info..]
@@ -69,20 +59,23 @@
                :l gap-ext-weight}
         locations (array-keys s1 s2)]
     (reduce (fn [m [i j]];;score array format
-              (let [from-diag (get-score m :d i j) ;;score match/mismatch (diagonal)
-                    from-up (get-score m :u i j) ;;score deletion (above)
-                    from-left (get-score m :l i j) ;;score insertion (left)
-                    aa1 (.charAt s1 i) ;;current char in s1
-                    aa2 (.charAt s2 j) ;;current char in s2
-                    ;;chooses from d, u, l and scores associated with it.
-                    [from score] (maxa [[:d (+ (:score from-diag) (if (= aa1 aa2) match-weight mismatch-weight))]
-                                        [:u (+ (:score from-up) (gapfn (:direction from-up)))]
-                                        [:l (+ (:score from-left) (gapfn (:direction from-left)))]])]
-                (assoc m [i j] ;;insertion of the best score into the matrix
+              (let [from-d (get m (dir->coord :d i j)) ;; match/mismatch (diagonal)
+                    from-u (get m  (dir->coord :u i j)) ;; deletion (above)
+                    from-l (get m (dir->coord :l i j)) ;; insertion (left)
+                    char1 (.charAt s1 i) ;;current char in s1
+                    char2 (.charAt s2 j) ;;current char in s2
+                    d-score (+ (:score from-d) (if (= char1 char2) match-weight mismatch-weight))
+                    u-score (+ (:score from-u) (gapfn (:direction from-u)))
+                    l-score (+ (:score from-l) (gapfn (:direction from-l)))
+                    from (cond (and (>= d-score u-score)
+                                    (>= d-score l-score)) :d
+                               (>= u-score l-score) :u
+                               :else :l)]
+                (assoc m [i j]
                        (case from
-                         :d (Alignment. score :d aa1 aa2)
-                         :u (Alignment. score :u aa1 \-)
-                         :l (Alignment. score :l \- aa2)))))
+                         :d (Alignment. d-score :d char1 char2)
+                         :u (Alignment. u-score :u char1 \-)
+                         :l (Alignment. l-score :l \- char2)))))
             (init-array s1 s2 locations {:global? global?
                                          :gap-open-weight gap-open-weight
                                          :gap-ext-weight gap-ext-weight})
