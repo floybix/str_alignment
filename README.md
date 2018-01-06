@@ -21,8 +21,8 @@ aligned strings (with gap characters inserted).
 (require '[org.nfrac.str-alignment.core :as ali])
 
 (def mat (ali/alignments "acacacta" "agcacaca" {}))
-(def loc (key (apply max-key #(first (val %)) mat)))
-(first (get mat loc)) ;; score
+(def loc (key (apply max-key #(:score (val %)) mat)))
+(:score (get mat loc))
 ;12
 (ali/align-at loc mat false)
 ;["a-cacacta" "agcacac-a"]
@@ -34,7 +34,7 @@ Global alignment example:
 (let [[s1 s2] ["gacttac" "cgtgaattcat"]
       mat (ali/alignments s1 s2 {:global? true :match-weight 1})
       loc [(count s1) (count s2)]]
-  [(first (get mat loc))
+  [(:score (get mat loc))
    (ali/align-at loc mat true)])
 ;[-1 ["---gactt-ac" "cgtgaattcat"]]
 ```

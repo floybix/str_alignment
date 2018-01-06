@@ -1,5 +1,7 @@
 (ns org.nfrac.str-alignment.core)
 
+(defrecord Alignment [score direction char1 char2])
+
 (defn- array-keys
   "positions of the array to work on"
 
@@ -20,9 +22,9 @@
        (reduce (fn [m [i j]]
                  (assoc m [i j]
                         (cond
-                         (= i j 0) [0 :stop \- \-]
-                         (= i 0) [(if global? (* gap-open j) 0) :l \- (.charAt s2 j)]
-                         (= j 0) [(if global? (* gap-open i) 0) :u (.charAt s1 i) \-])))
+                          (= i j 0) (Alignment. 0 :stop \- \-)
+                          (= i 0) (Alignment. (if global? (* gap-open j) 0) :l \- (.charAt s2 j))
+                          (= j 0) (Alignment. (if global? (* gap-open i) 0) :u (.charAt s1 i) \-))))
                {})))
 
 (defn- dir->coord [dir i j]
@@ -42,15 +44,6 @@
        (sort-by first)
        first))
 
-
-(defn- gapfn
-  "For gap extention penalties, the direction of the previous cell must also be checked"
-  [from gap-open gap-ext]
-  (case from
-    :d gap-open
-    :u gap-ext
-    :l gap-ext))
-
 (defn alignments
   "Calculates the alignment score matrix for two strings.
   Returns a map from [i1 i2] to [score ..other-path-info..]
@@ -69,24 +62,25 @@
                global? false}}]
   (let [s1 (str "-" s1)
         s2 (str "-" s2)
+        gapfn {:d gap-open-weight
+               :u gap-ext-weight
+               :l gap-ext-weight}
         locations (array-keys s1 s2)]
     (reduce (fn [m [i j]];;score array format
-              (let [[d dfrom] (get-score m :d i j) ;;score match/mismatch (diagonal)
-                    [u ufrom] (get-score m :u i j) ;;score deletion (above)
-                    [l lfrom] (get-score m :l i j) ;;score insertion (left)
+              (let [from-diag (get-score m :d i j) ;;score match/mismatch (diagonal)
+                    from-up (get-score m :u i j) ;;score deletion (above)
+                    from-left (get-score m :l i j) ;;score insertion (left)
                     aa1 (.charAt s1 i) ;;current char in s1
                     aa2 (.charAt s2 j) ;;current char in s2
                     ;;chooses from d, u, l and scores associated with it.
-                    [from score] (maxa [(if (= aa1 aa2 )
-                                          [:d (+ d match-weight)]
-                                          [:d (+ d mismatch-weight)])
-                                        [:u (+ u (gapfn ufrom gap-open-weight gap-ext-weight))]
-                                        [:l (+ l (gapfn lfrom gap-open-weight gap-ext-weight))]])]
+                    [from score] (maxa [[:d (+ (:score from-diag) (if (= aa1 aa2) match-weight mismatch-weight))]
+                                        [:u (+ (:score from-up) (gapfn (:direction from-up)))]
+                                        [:l (+ (:score from-left) (gapfn (:direction from-left)))]])]
                 (assoc m [i j] ;;insertion of the best score into the matrix
                        (case from
-                         :d [score :d aa1 aa2]
-                         :u [score :u aa1 \-]
-                         :l [score :l \- aa2]))))
+                         :d (Alignment. score :d aa1 aa2)
+                         :u (Alignment. score :u aa1 \-)
+                         :l (Alignment. score :l \- aa2)))))
             (init-array s1 s2 locations {:global? global?
                                          :gap-open-weight gap-open-weight
                                          :gap-ext-weight gap-ext-weight})
@@ -102,13 +96,13 @@
   (loop [[i j :as loc] start-loc
          aln_s1 (list)
          aln_s2 (list)]
-    (let [[cscore dir a1 a2] (get H-mat loc) ;;stores the next location [score[i j] to go to in H]
-          next-coord (dir->coord dir i j)]
-      (if (or (pos? cscore)
+    (let [{:keys [score direction char1 char2]} (get H-mat loc)
+          next-coord (dir->coord direction i j)]
+      (if (or (pos? score)
               (and anchor-left? (not= :stop next-coord)))
         (recur next-coord
-               (cons a1 aln_s1) ;;builds strings up from the right to left
-               (cons a2 aln_s2))
-        (if (= \- a1 a2)
+               (cons char1 aln_s1) ;;builds strings up from the right to left
+               (cons char2 aln_s2))
+        (if (= \- char1 char2)
           [(apply str aln_s1) (apply str aln_s2)]
-          [(apply str a1 aln_s1) (apply str a2 aln_s2)])))))
+          [(apply str char1 aln_s1) (apply str char2 aln_s2)])))))

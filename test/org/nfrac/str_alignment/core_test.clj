@@ -8,8 +8,8 @@
         mat (ali/alignments s1 s2 opts)
         loc (if (:global? opts)
               [(count s1) (count s2)]
-              (key (apply max-key #(first (val %)) mat)))]
-    [(first (get mat loc))
+              (key (apply max-key #(:score (val %)) mat)))]
+    [(:score (get mat loc))
      (ali/align-at loc mat anchor-left?)]))
 
 (deftest opts-test
@@ -29,3 +29,13 @@
   (test/is (= (align "gacttac" "cgtgaattcat" {:global? false :match-weight 1 :anchor-left? false})
               [3 ["-gactt-a" "tgaattca"]])
            "global false weight 1"))
+
+(deftest perf-test
+
+  (let [s1 (apply str (concat (repeat 200 \a) (repeat 200 \b)))
+        s2 (apply str (concat (repeat 100 \a) (repeat 100 \b)
+                              (repeat 100 \a) (repeat 100 \b)))]
+    (println
+     (time
+      (align s1 s2 {:match-weight 1})))
+    ))
