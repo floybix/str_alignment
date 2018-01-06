@@ -22,12 +22,13 @@
          (filter #(or (zero? (first %))
                       (zero? (second %))))
          (reduce (fn [m [i j]]
-                   (assoc m [i j]
-                          (cond
-                            (= i j 0) (Alignment. 0 :stop \- \-)
-                            (= i 0) (Alignment. (if global? (* gap-open j) 0) :l \- (.charAt s2 j))
-                            (= j 0) (Alignment. (if global? (* gap-open i) 0) :u (.charAt s1 i) \-))))
-                 {}))))
+                   (assoc! m [i j]
+                           (cond
+                             (= i j 0) (Alignment. 0 :stop \- \-)
+                             (= i 0) (Alignment. (if global? (* gap-open j) 0) :l \- (.charAt s2 j))
+                             (= j 0) (Alignment. (if global? (* gap-open i) 0) :u (.charAt s1 i) \-))))
+                 (transient {}))
+         (persistent!))))
 
 (defn- dir->coord [dir i j]
   (case dir
@@ -54,33 +55,39 @@
                global? false}}]
   (let [s1 (str "-" s1)
         s2 (str "-" s2)
-        gapfn {:d gap-open-weight
-               :u gap-ext-weight
-               :l gap-ext-weight}
+        gapfn #(if (= % :d) gap-open-weight gap-ext-weight)
         locations (array-keys s1 s2)]
-    (reduce (fn [m [i j]];;score array format
-              (let [from-d (get m (dir->coord :d i j)) ;; match/mismatch (diagonal)
-                    from-u (get m  (dir->coord :u i j)) ;; deletion (above)
-                    from-l (get m (dir->coord :l i j)) ;; insertion (left)
-                    char1 (.charAt s1 i) ;;current char in s1
-                    char2 (.charAt s2 j) ;;current char in s2
-                    d-score (+ (:score from-d) (if (= char1 char2) match-weight mismatch-weight))
-                    u-score (+ (:score from-u) (gapfn (:direction from-u)))
-                    l-score (+ (:score from-l) (gapfn (:direction from-l)))
-                    from (cond (and (>= d-score u-score)
-                                    (>= d-score l-score)) :d
-                               (>= u-score l-score) :u
-                               :else :l)]
-                (assoc m [i j]
-                       (case from
-                         :d (Alignment. d-score :d char1 char2)
-                         :u (Alignment. u-score :u char1 \-)
-                         :l (Alignment. l-score :l \- char2)))))
-            (init-array s1 s2 locations {:global? global?
-                                         :gap-open-weight gap-open-weight
-                                         :gap-ext-weight gap-ext-weight})
-            (remove #(or (zero? (first %))
-                         (zero? (second %))) locations))))
+    (persistent!
+     (reduce (fn [m [i j :as loc]];;score array format
+               (let [from-d (get m (dir->coord :d i j)) ;; match/mismatch (diagonal)
+                     from-u (get m  (dir->coord :u i j)) ;; deletion (above)
+                     from-l (get m (dir->coord :l i j)) ;; insertion (left)
+                     char1 (.charAt s1 i) ;;current char in s1
+                     char2 (.charAt s2 j) ;;current char in s2
+                     d-score (cond->
+                                 (+ (:score from-d) (if (= char1 char2) match-weight mismatch-weight))
+                               (not global?) (max 0))
+                     u-score (cond->
+                                 (+ (:score from-u) (gapfn (:direction from-u)))
+                               (not global?) (max 0))
+                     l-score (cond->
+                                 (+ (:score from-l) (gapfn (:direction from-l)))
+                               (not global?) (max 0))
+                     from (cond (and (>= d-score u-score)
+                                     (>= d-score l-score)) :d
+                                (>= u-score l-score) :u
+                                :else :l)]
+                 (assoc! m loc
+                         (case from
+                           :d (Alignment. d-score :d char1 char2)
+                           :u (Alignment. u-score :u char1 \-)
+                           :l (Alignment. l-score :l \- char2)))))
+             (transient
+              (init-array s1 s2 locations {:global? global?
+                                           :gap-open-weight gap-open-weight
+                                           :gap-ext-weight gap-ext-weight}))
+             (remove #(or (zero? (first %))
+                          (zero? (second %))) locations)))))
 
 (defn align-at
   "Align two strings from the given offset positions.
