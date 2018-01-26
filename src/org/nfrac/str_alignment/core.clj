@@ -4,7 +4,6 @@
 
 (defn- array-keys
   "positions of the array to work on"
-
   [s1 s2]
   (for [i (range (count s1)) ;initialize scoring array. similar to a sparse matrix
         j (range (count s2))]
@@ -93,12 +92,12 @@
   "Align two strings from the given offset positions.
   Returns [string1 string2], each padded with '-'. If anchor-left? is
   true then the alignment continues to the beginning of each string.
-  H-mat is the return value from the alignments function."
-  [start-loc H-mat anchor-left?]
-  (loop [[i j :as loc] start-loc
+  mat is the return value from the alignments function."
+  [anchor-loc mat anchor-left?]
+  (loop [[i j :as loc] anchor-loc
          aln_s1 (list)
          aln_s2 (list)]
-    (let [{:keys [score direction char1 char2]} (get H-mat loc)
+    (let [{:keys [score direction char1 char2]} (get mat loc)
           next-coord (dir->coord direction i j)]
       (if (or (pos? score)
               (and anchor-left? (not= :stop next-coord)))
@@ -111,16 +110,16 @@
 
 (defn match-length
   "Returns [length1 length2], the length of the matching substring in s1,s2.
-  The initial offsets i0 j0 define the end point of the match (indexes
-  incremented to allow for initial gap at index 0), and the strings
-  are aligned backward from there until a zero similarity score is
-  reached. That defines the beginning of the match."
-  [[i0 j0 :as start-loc] H-mat]
-  (loop [[i j :as loc] start-loc
-         [ip jp] start-loc]
-    (let [{:keys [score direction char1 char2]} (get H-mat loc)
+  The anchor indexes ia ja define the end point of the match (with
+  indexes incremented to allow for initial gap at index 0), and the
+  strings are aligned backward from there until a zero similarity
+  score is reached, marking the beginning of the match."
+  [[ia ja :as anchor-loc] mat]
+  (loop [[i j :as loc] anchor-loc
+         [ip jp] anchor-loc]
+    (let [{:keys [score direction char1 char2]} (get mat loc)
           next-coord (dir->coord direction i j)]
       (if (pos? score)
         (recur next-coord loc)
         ;; compare to previous loc [ip jp], as that has positive score
-        [(inc (- i0 ip)) (inc (- j0 jp))]))))
+        [(inc (- ia ip)) (inc (- ja jp))]))))
