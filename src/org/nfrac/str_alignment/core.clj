@@ -108,18 +108,50 @@
           [(apply str aln_s1) (apply str aln_s2)]
           [(apply str char1 aln_s1) (apply str char2 aln_s2)])))))
 
-(defn match-length
-  "Returns [length1 length2], the length of the matching substring in s1,s2.
-  The anchor indexes ia ja define the end point of the match (with
+(defn match-path
+  "Returns the sequence of alignment locations [i j] representing the
+  matching of strings from the given anchor-loc. The returned
+  locations are ordered from the beginning of the match.
+
+  The anchor indexes [ia ja] define the end point of the match (with
   indexes incremented to allow for initial gap at index 0), and the
   strings are aligned backward from there until a zero similarity
   score is reached, marking the beginning of the match."
-  [[ia ja :as anchor-loc] mat]
+  [anchor-loc mat]
   (loop [[i j :as loc] anchor-loc
-         [ip jp] anchor-loc]
-    (let [{:keys [score direction char1 char2]} (get mat loc)
+         locs (list)]
+    (let [{:keys [score direction]} (get mat loc)
           next-coord (dir->coord direction i j)]
       (if (pos? score)
-        (recur next-coord loc)
-        ;; compare to previous loc [ip jp], as that has positive score
-        [(inc (- ia ip)) (inc (- ja jp))]))))
+        (recur next-coord (cons loc locs))
+        locs))))
+
+(defn match-beginning
+  [anchor-loc mat]
+  (first (match-path anchor-loc mat)))
+
+(defn distinct-local-matches
+  "Finds all matching subsequences from the alignment matrix mat,
+  returning each locally best match. That means it does not include
+  subset matches of a larger better match, or superset matches of a
+  smaller better match.
+"
+  [mat min-score]
+  (loop [candidates (->> mat
+                         (filter #(>= (:score (val %)) min-score))
+                         (sort-by #(:score (val %)) >)
+                         (map first))
+         processed #{}
+         matches []]
+    (if (empty? candidates)
+      matches
+      (let [[i j :as loc] (first candidates)
+            alocs (match-path loc mat)
+            ]
+        (recur (remove (set alocs) candidates)
+               (into processed alocs)
+               ;; if any aligned points were already processed, skip
+               (if (some processed alocs)
+                 matches
+                 ;; otherwise, valid match
+                 (conj matches alocs)))))))

@@ -39,6 +39,16 @@ Global alignment example:
 ;[-1 ["---gactt-ac" "cgtgaattcat"]]
 ```
 
+Multiple local alignments example:
+
+``` clojure
+(ali/distinct-local-matches
+  (ali/alignments "abcdefg" "abcd----b-deg" {:match-weight 2}) 4)
+
+;[([1 1] [2 2] [3 3] [4 4])
+; ([2 9] [3 10] [4 11] [5 12] [6 12] [7 13])]
+```
+
 Scoring weights passed to `alignments` are
 
 | key                | default |

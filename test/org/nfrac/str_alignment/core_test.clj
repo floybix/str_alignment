@@ -30,6 +30,19 @@
               [3 ["-gactt-a" "tgaattca"]])
            "global false weight 1"))
 
+(deftest multi-local-test
+  (let [s1 "abcdef.....bcd.fg...bcdf."
+        s2 "bcdefg"
+        mat (ali/alignments s1 s2 {:match-weight 1})
+        min-score 3
+        ]
+    (test/is (= (ali/distinct-local-matches mat min-score)
+                '[([2 1] [3 2] [4 3] [5 4] [6 5])
+                  ([12 1] [13 2] [14 3] [15 4] [16 5] [17 6])
+                  ([21 1] [22 2] [23 3] [23 4] [24 5])]))
+    ))
+
+
 (deftest perf-test
 
   (let [s1 (apply str (concat (repeat 200 \a) (repeat 200 \b)))
