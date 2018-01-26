@@ -108,3 +108,19 @@
         (if (= \- char1 char2)
           [(apply str aln_s1) (apply str aln_s2)]
           [(apply str char1 aln_s1) (apply str char2 aln_s2)])))))
+
+(defn match-length
+  "Returns [length1 length2], the length of the matching substring in s1,s2.
+  The initial offsets i0 j0 define the end point of the match (indexes
+  incremented to allow for initial gap at index 0), and the strings
+  are aligned backward from there until a zero similarity score is
+  reached. That defines the beginning of the match."
+  [[i0 j0 :as start-loc] H-mat]
+  (loop [[i j :as loc] start-loc
+         [ip jp] start-loc]
+    (let [{:keys [score direction char1 char2]} (get H-mat loc)
+          next-coord (dir->coord direction i j)]
+      (if (pos? score)
+        (recur next-coord loc)
+        ;; compare to previous loc [ip jp], as that has positive score
+        [(inc (- i0 ip)) (inc (- j0 jp))]))))
