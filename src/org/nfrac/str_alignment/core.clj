@@ -117,18 +117,19 @@
   indexes incremented to allow for initial gap at index 0), and the
   strings are aligned backward from there until a zero similarity
   score is reached, marking the beginning of the match."
-  [anchor-loc mat]
+  [anchor-loc mat anchor-left?]
   (loop [[i j :as loc] anchor-loc
          locs (list)]
     (let [{:keys [score direction]} (get mat loc)
           next-coord (dir->coord direction i j)]
-      (if (pos? score)
+      (if (or (pos? score)
+              (and anchor-left? (not= :stop next-coord)))
         (recur next-coord (cons loc locs))
         locs))))
 
 (defn match-beginning
   [anchor-loc mat]
-  (first (match-path anchor-loc mat)))
+  (first (match-path anchor-loc mat false)))
 
 (defn distinct-local-matches
   "Finds all matching subsequences from the alignment matrix mat,
@@ -140,13 +141,13 @@
   (loop [candidates (->> mat
                          (filter #(>= (:score (val %)) min-score))
                          (sort-by #(:score (val %)) >)
-                         (map first))
+                         (map key))
          processed #{}
          matches []]
     (if (empty? candidates)
       matches
       (let [[i j :as loc] (first candidates)
-            alocs (match-path loc mat)
+            alocs (match-path loc mat false)
             ]
         (recur (remove (set alocs) candidates)
                (into processed alocs)
